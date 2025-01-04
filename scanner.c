@@ -65,7 +65,8 @@ static char *substr(const char *source, int start, int end){
     int substr_size = end - start;
     char *result = calloc(substr_size + 1, 1);
     if (!result){
-        return NULL;
+        fprintf(stderr,"Error: Unable to allocate memory\n");
+        exit(1);
     }
     strncpy(result, &source[start], substr_size);
     result[substr_size] = '\0';
