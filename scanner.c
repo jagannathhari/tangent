@@ -1,6 +1,5 @@
 #include "scanner.h"
 #include <ctype.h>
-#include <threads.h>
 
 const char *token_to_str(TokenType type){
 
