@@ -32,7 +32,7 @@ typedef struct
     size_t capacity;
     size_t element_size;
     size_t length;
-    size_t vector__aligment; // I think it will make not cause alignmet issue for 1,2,4,16,32 (on 64bit)
+    size_t vector__aligment; // I think it will not cause alignment issues for 1, 2, 4, 16, 32 (on 64-bit)
 }VectorHeader;
 
 #define VECTOR_CAPACITY                 16
