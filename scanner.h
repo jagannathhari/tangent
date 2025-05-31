@@ -51,9 +51,10 @@
     TOKEN(RETURN)                                                              \
     TOKEN(FUNCTION)                                                            \
     TOKEN(FILE_END)                                                            \
+    TOKEN(PREFIX)\
     TOKEN_EXCLUDE(UNKNOWN = -1)
 
-#define TOKEN_EXCLUDE(name) TOKEN(name)
+#define TOKEN_EXCLUDE(name) name
 #define TOKEN(name) name,
 
 typedef enum { TOKEN_LIST } TokenType;

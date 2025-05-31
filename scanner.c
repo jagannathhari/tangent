@@ -5,8 +5,8 @@ const char *token_to_str(TokenType type)
 {
 
     #define TOKEN(name) #name,
-    #define TOKEN_EXCLUDE(name)
-
+    #define TOKEN_EXCLUDE(name) "/0"
+ 
     const char *tokens[] = {TOKEN_LIST};
     int total_tokens = sizeof(tokens)/sizeof(tokens[0]);
 

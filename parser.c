@@ -1,12 +1,31 @@
-#include "parser.h"
 #include "scanner.h"
-
-#include <inttypes.h>
 #include <stdarg.h>
 #include <stdio.h>
 
 #define IMPLEMENT_VECTOR
 #include "vector.h"
+
+#include "./scanner.c"
+#include "parser.h"
+
+#ifndef RELEASE
+
+int debug(const char *fmt, ...)
+{
+    int written = 0;
+    va_list args;
+    va_start(args, fmt);
+
+    written = vfprintf(stdout, fmt, args);
+    fflush(stdout);
+    va_end(args);
+    return written;
+}
+
+#else
+#define debug(fmt,...)
+#endif
+
 
 int error_occur(const char *fmt, ...)
 {
@@ -143,17 +162,6 @@ Ast *value(Parser *parser)
     case FLOAT_CONSTANT:
         eat(parser, FLOAT_CONSTANT);
         return num_float(10);
-    case PLUS:
-        eat(parser, PLUS);
-        return unary_op(PLUS, value(parser));
-    case MINUS:
-        eat(parser, MINUS);
-        return unary_op(MINUS, value(parser));
-    case LEFT_PARAN:
-        eat(parser, LEFT_PARAN);
-        Ast *node = expr(parser);
-        eat(parser, RIGHT_PARAN);
-        return node;
     default:
         print_token(token);
         puts("Unexpected token");
@@ -173,68 +181,6 @@ static bool is_power_of_2(int n)
     return true;
 }
 
-Ast *power(Parser *parser)
-{
-    // power = value (POWER power)?
-    Ast *node = value(parser);
-    Token token = parser->current_token;
-    if (parser->current_token.type == POWER)
-    {
-        eat(parser, POWER);
-        Ast *tmp = bin_op(token.type, node, power(parser));
-        node = tmp;
-    }
-    return node;
-}
-
-Ast *product(Parser *parser)
-{
-    // """product: power ((MUL | DIV) power)*"""
-    Ast *node = power(parser);
-    while (token_is(parser->current_token.type, ASTRIK, SLASH))
-    {
-        Ast *tmp;
-        Token token = parser->current_token;
-        if (parser->current_token.type == ASTRIK)
-        {
-            eat(parser, ASTRIK);
-            tmp = bin_op(token.type, node, power(parser));
-            node = tmp;
-        }
-        else if (parser->current_token.type == SLASH)
-        {
-            eat(parser, SLASH);
-            tmp = bin_op(token.type, node, power(parser));
-            node = tmp;
-        }
-    }
-    return node;
-}
-
-Ast *expr(Parser *parser)
-{
-    // expr: product ((ADD,MINUS) product )*
-    Ast *node = product(parser);
-    while (token_is(parser->current_token.type, PLUS, MINUS))
-    {
-        Token token = parser->current_token;
-        Ast *tmp;
-        if (parser->current_token.type == PLUS)
-        {
-            eat(parser, PLUS);
-            tmp = bin_op(token.type, node, product(parser));
-            node = tmp;
-        }
-        else
-        {
-            eat(parser, MINUS);
-            tmp = bin_op(token.type, node, product(parser));
-            node = tmp;
-        }
-    }
-
-    return node;
-}
 
 int visit(Ast *root);
 
@@ -246,13 +192,13 @@ int visit_bin_op(Ast *node)
     switch (type)
     {
     case PLUS:
-        printf("+ ");
+        debug("+ ");
         return left + right;
     case MINUS:
-        printf("- ");
+        debug("- ");
         return left - right;
     case SLASH:
-        printf("/ ");
+        debug("/ ");
         if (right == 0)
         {
             puts("Division by zero error");
@@ -260,8 +206,15 @@ int visit_bin_op(Ast *node)
         }
         return left / right;
     case ASTRIK:
-        printf("* ");
+        debug("* ");
         return left * right;
+    case POWER:
+            debug("** ");
+            {
+                int product = 1;
+                while(right--){product *= left;}
+                return product;
+            }
     default:
         return -1;
     }
@@ -270,7 +223,7 @@ int visit_bin_op(Ast *node)
 int visit_number(Ast *node)
 {
     // printf("visiting number %d\n",node->value.int_value);
-    printf("%d ", node->value.int_value);
+    debug("%d ", node->value.int_value);
     return node->value.int_value;
 }
 
@@ -278,10 +231,12 @@ int visit_unary(Ast *node)
 {
     if (node->type == PLUS)
     {
+        debug("+ ");
         return visit(node->children[0]);
     }
     else
     {
+        debug("- ");
         return -visit(node->children[0]);
     }
 }
@@ -301,21 +256,94 @@ int visit(Ast *root)
     exit(1);
 }
 
+int bp(TokenType token_type)
+{
+    switch (token_type) 
+    {
+        case PLUS:
+        case MINUS:
+            return 10;
+
+        case SLASH:
+        case ASTRIK: 
+            return 20;
+        case PREFIX:
+            return 21;
+        case POWER:
+            return 30;
+    }
+    return -1;
+}
+
+    
+Ast* nud(Parser* p)
+{
+    switch(p->current_token.type)
+    {
+        case PLUS:
+        case MINUS:
+        {
+                TokenType type = p->current_token.type;
+                eat(p,type);
+                Ast* tmp = unary_op(type,expr(p,bp(PREFIX)));
+                return tmp;
+        }
+        case INT_CONSTANT:
+        case HEX_CONSTANT:
+        case FLOAT_CONSTANT:
+            return value(p);
+
+        case LEFT_PARAN:
+        {
+            TokenType type = p->current_token.type;
+            eat(p,type);
+            Ast* tmp = expr(p,0);
+            eat(p,RIGHT_PARAN);
+            return tmp; 
+        }
+        default:
+        {
+            error_occur("Unexpected Token %s\n",token_to_str(p->current_token.type));
+            exit(-1);
+            return NULL;
+        }
+    }
+
+    return NULL; // unneccesory
+}
+
+Ast* led(Parser* p,Ast* left)
+{
+    TokenType type = p->current_token.type;
+    eat(p,type);
+    if(type == POWER)
+        return bin_op(type,left, expr(p,bp(type)-1));
+    return bin_op(type,left, expr(p,bp(type)+1));
+
+}
+
+Ast* expr(Parser*p, int rbp)
+{
+    Ast* left = nud(p); // consumes the token
+    while(bp(p->current_token.type)>rbp)
+    {
+        left = led(p,left);
+    }
+    return left;
+}
+
 int main(void)
 {
     Parser *parser = init_parser("test.lang");
-    //     while(parser->current_token.type !=FILE_END){
-    //     print_token(parser->current_token);
-    //     free(parser->current_token.lexeme);
-    //     parser->current_token = next_token(parser->ss);
-    // }
-    // // memset(parser->ss, 0, sizeof(*parser->ss));
-    Ast *e = expr(parser);
+
+    Ast *e = expr(parser,0);
     int ans = visit(e);
+
     printf("\n%d\n", ans);
-    free((void *)parser->ss->source);
-    free((void *)parser->ss);
     free(parser);
     free_ast(e);
+
+    free((void *)parser->ss->source);
+    free((void *)parser->ss);
     return 0;
 }
