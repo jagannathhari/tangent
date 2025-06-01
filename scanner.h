@@ -23,6 +23,7 @@
     TOKEN(GREATER_THAN)                                                        \
     TOKEN(COMMA)                                                               \
     TOKEN(SEMICOLON)                                                           \
+    TOKEN(COLON)\
     TOKEN(MOD)                                                                 \
     TOKEN(DOT)                                                                 \
     TOKEN(NOT)                                                                 \
@@ -40,18 +41,20 @@
     TOKEN(HEX_CONSTANT)                                                        \
     TOKEN(FLOAT_CONSTANT)                                                      \
     TOKEN(IDENTIFYER)                                                          \
-    TOKEN(AND)                                                                 \
-    TOKEN(OR)                                                                  \
-    TOKEN(IF)                                                                  \
-    TOKEN(ELSE)                                                                \
-    TOKEN(TRUE)                                                                \
-    TOKEN(FALSE)                                                               \
-    TOKEN(FOR)                                                                 \
-    TOKEN(WHILE)                                                               \
-    TOKEN(RETURN)                                                              \
-    TOKEN(FUNCTION)                                                            \
-    TOKEN(FILE_END)                                                            \
     TOKEN(PREFIX)\
+    TOKEN(K_AND)                                                                 \
+    TOKEN(K_OR)                                                                  \
+    TOKEN(K_IF)                                                                  \
+    TOKEN(K_ELSE)                                                                \
+    TOKEN(K_TRUE)                                                                \
+    TOKEN(K_FALSE)                                                               \
+    TOKEN(K_FOR)                                                                 \
+    TOKEN(K_WHILE)                                                               \
+    TOKEN(K_RETURN)                                                              \
+    TOKEN(K_FUNCTION)                                                            \
+    TOKEN(K_VAR)\
+    TOKEN(K_INT)\
+    TOKEN(FILE_END)                                                            \
     TOKEN_EXCLUDE(UNKNOWN = -1)
 
 #define TOKEN_EXCLUDE(name) name

@@ -1,15 +1,16 @@
 #include "scanner.h"
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 
 #define IMPLEMENT_VECTOR
 #include "vector.h"
 
 #include "./scanner.c"
 #include "parser.h"
+#include "uthash.h"
 
 #ifndef RELEASE
-
 int debug(const char *fmt, ...)
 {
     int written = 0;
@@ -26,6 +27,14 @@ int debug(const char *fmt, ...)
 #define debug(fmt,...)
 #endif
 
+typedef struct 
+{
+    char id[MAX_IDENDIFYER_LEN+1];
+    float value;
+    UT_hash_handle hh;
+}Var_items;
+
+Var_items* var_memory = NULL;
 
 int error_occur(const char *fmt, ...)
 {
@@ -36,6 +45,13 @@ int error_occur(const char *fmt, ...)
     written += vfprintf(stderr, fmt, args);
     va_end(args);
     return written;
+}
+
+void free_parser(Parser* p)
+{
+    free((void *)p->ss->source);
+    free((void *)p->ss);
+    free(p);
 }
 
 Ast *new_ast(TokenType type, NodeType node_type)
@@ -220,14 +236,14 @@ int visit_bin_op(Ast *node)
     }
 }
 
-int visit_number(Ast *node)
+int visit_number(Ast* node)
 {
     // printf("visiting number %d\n",node->value.int_value);
     debug("%d ", node->value.int_value);
     return node->value.int_value;
 }
 
-int visit_unary(Ast *node)
+int visit_unary(Ast* node)
 {
     if (node->type == PLUS)
     {
@@ -241,6 +257,56 @@ int visit_unary(Ast *node)
     }
 }
 
+int visit_declaration(Ast* root)
+{
+    char* var_name = root->children[0]->value.identifer;
+    Var_items* var = NULL; 
+    HASH_FIND_STR(var_memory,var_name,var); 
+    if(var)
+    {
+        error_occur("Variable \"%s\" already declared.\n",var_name);
+        exit(-1);
+    }
+
+    var = malloc(sizeof(*var));
+    if(!var) perror("Unalble to allocate memory."); 
+
+    strncpy(var->id,var_name,MAX_IDENDIFYER_LEN);
+    HASH_ADD_STR(var_memory,id,var);
+
+    HASH_FIND_STR(var_memory,var_name,var); 
+    debug("Variable \"%s\" declration successfull.\n",var_name);
+    return 0;
+}
+
+Ast* program(Parser* p)
+{
+    Ast* root = new_ast(-1,PROGRAM); 
+    while(p->current_token.type != FILE_END)
+    {
+        vector_append(root->children,declaration(p));
+    }
+    return root;
+}
+
+int visit_program(Ast* root)
+{
+    size_t len = vector_length(root->children);
+    for(int i=0;i<len;i++) visit(root->children[i]);
+    return 0;
+}
+
+int visit_identifyer(Ast* root)
+{
+    Var_items* var = NULL;
+    HASH_FIND_STR(var_memory,root->value.identifer,var);
+    if(!var)
+    {
+        error_occur("Variable \"%s\" not declared.\n",
+                    root->value.identifer);
+    }
+    return var->value;
+}
 int visit(Ast *root)
 {
     switch (root->node_type)
@@ -251,6 +317,12 @@ int visit(Ast *root)
         return visit_bin_op(root);
     case NUM:
         return visit_number(root);
+    case VAR_DECL:
+        return visit_declaration(root);
+    case PROGRAM:
+        return visit_program(root);
+    case ID:
+        return visit_identifyer(root);
     }
 
     exit(1);
@@ -303,7 +375,8 @@ Ast* nud(Parser* p)
         }
         default:
         {
-            error_occur("Unexpected Token %s\n",token_to_str(p->current_token.type));
+            error_occur("Unexpected Token %s\n",
+                        token_to_str(p->current_token.type));
             exit(-1);
             return NULL;
         }
@@ -332,18 +405,63 @@ Ast* expr(Parser*p, int rbp)
     return left;
 }
 
+Ast* declaration(Parser* p)
+{
+    Token token = p->current_token;
+
+    eat(p,K_VAR);
+    Ast* var = new_ast(K_VAR,VAR_DECL);
+
+    token = p->current_token;
+    if(token.type != IDENTIFYER)
+    {
+        error_occur("Idenfifyer expected but got %s\n",
+                    token_to_str(token.type));
+        exit(-1);
+    }
+    int id_len = strlen(token.lexeme);
+    if(id_len>MAX_IDENDIFYER_LEN)
+    {
+        error_occur("Variable name cannot be greter than %d\n",MAX_IDENDIFYER_LEN);
+        error_occur("Current variable name length is %d\n",id_len);
+        exit(-1);
+    }
+
+    Ast* id = new_ast(IDENTIFYER,ID);
+    strcpy(id->value.identifer,token.lexeme);
+    eat(p,IDENTIFYER);
+
+    token = p->current_token;
+    eat(p,COLON);
+
+
+    token = p->current_token;
+    eat(p,K_INT);
+    Ast* data_type = new_ast(K_INT, DATA_TYPE);
+    eat(p,SEMICOLON);
+    vector_append(var->children,id);
+    vector_append(var->children,data_type);
+
+    return var;
+}
+
 int main(void)
 {
     Parser *parser = init_parser("test.lang");
 
-    Ast *e = expr(parser,0);
+    // Ast *e = expr(parser,0);
+    Ast *e = program(parser); 
     int ans = visit(e);
 
-    printf("\n%d\n", ans);
-    free(parser);
-    free_ast(e);
+    // printf("\n%d\n", ans);
 
-    free((void *)parser->ss->source);
-    free((void *)parser->ss);
+    Var_items *current, *tmp;
+    HASH_ITER(hh,var_memory, current, tmp) {
+        HASH_DEL(var_memory, current);
+        free(current);
+    }
+
+    free_parser(parser);
+    free_ast(e);
     return 0;
 }

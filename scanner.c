@@ -238,20 +238,22 @@ static Token number(char first_digit , ScannerState *ss)
     return number_decimal(ss);
 }
 
-static TokenType keyword(const char *identifier)
+static TokenType is_keyword(const char *identifier)
 {
 #define STRCMP(str) strcmp(identifier, str) == 0
 
-    if (STRCMP("or"))          return OR;
-    else if (STRCMP("for"))    return FOR;
-    else if (STRCMP("while"))  return WHILE;
-    else if (STRCMP("return")) return RETURN;
-    else if (STRCMP("else"))   return ELSE;
-    else if (STRCMP("true"))   return TRUE;
-    else if (STRCMP("false"))  return FALSE;
-    else if (STRCMP("if"))     return IF;
-    else if (STRCMP("and"))    return AND;
-    else if (STRCMP("fn"))     return FUNCTION;
+    if (STRCMP("or"))          return K_OR;
+    else if (STRCMP("for"))    return K_FOR;
+    else if (STRCMP("while"))  return K_WHILE;
+    else if (STRCMP("return")) return K_RETURN;
+    else if (STRCMP("else"))   return K_ELSE;
+    else if (STRCMP("true"))   return K_TRUE;
+    else if (STRCMP("false"))  return K_FALSE;
+    else if (STRCMP("if"))     return K_IF;
+    else if (STRCMP("and"))    return K_AND;
+    else if (STRCMP("fn"))     return K_FUNCTION;
+    else if (STRCMP("var"))    return K_VAR;
+    else if (STRCMP("int"))    return K_INT;
     else                       return IDENTIFYER;
 }
 
@@ -263,7 +265,7 @@ static Token identifier(ScannerState *ss)
     char *identifier = substr(ss->source, ss->start, ss->current);
 
     Token token;
-    token.type   = keyword(identifier);
+    token.type   = is_keyword(identifier);
     token.line   = ss->line;
     token.lexeme = substr(ss->source, ss->start, ss->current);
 
@@ -297,6 +299,8 @@ Token next_token(ScannerState *ss)
             return build_token(match('*',ss)?POWER:ASTRIK, ss);
         case ';':
             return build_token(SEMICOLON, ss);
+        case ':':
+            return build_token(COLON, ss);
         case ',':
             return build_token(COMMA, ss);
         case '+':
