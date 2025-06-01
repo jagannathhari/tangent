@@ -254,6 +254,7 @@ static TokenType is_keyword(const char *identifier)
     else if (STRCMP("fn"))     return K_FUNCTION;
     else if (STRCMP("var"))    return K_VAR;
     else if (STRCMP("int"))    return K_INT;
+    else if (STRCMP("print"))  return K_PRINT;
     else                       return IDENTIFYER;
 }
 

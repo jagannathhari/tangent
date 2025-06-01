@@ -1,12 +1,12 @@
 #ifndef parser_h_INCLUDED
 #define parser_h_INCLUDED
-#include "scanner.h"
 
 #define MAX_IDENDIFYER_LEN 256
 typedef enum
 {
     UNARY_OP,
     BINARY_OP,
+    ASSIGN_OP,
     VAR_DECL,
     DATA_TYPE,
     PROGRAM,
@@ -38,6 +38,8 @@ typedef struct
 Parser* init_parser(const char* file_path);
 
 int visit_identifyer(Ast* root);
+
+int visit(Ast *root);
 Ast* declaration(Parser* p);
 Ast* expr(Parser*p, int rbp);
 Ast* led(Parser* p,Ast* left);

@@ -54,6 +54,7 @@
     TOKEN(K_FUNCTION)                                                            \
     TOKEN(K_VAR)\
     TOKEN(K_INT)\
+    TOKEN(K_PRINT)\
     TOKEN(FILE_END)                                                            \
     TOKEN_EXCLUDE(UNKNOWN = -1)
 

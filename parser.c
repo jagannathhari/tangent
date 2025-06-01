@@ -9,7 +9,7 @@
 #include "./scanner.c"
 #include "parser.h"
 #include "uthash.h"
-
+#define RELEASE
 #ifndef RELEASE
 int debug(const char *fmt, ...)
 {
@@ -45,6 +45,17 @@ int error_occur(const char *fmt, ...)
     written += vfprintf(stderr, fmt, args);
     va_end(args);
     return written;
+}
+
+static void assert_id(const char* id)
+{
+    int id_len = strlen(id);
+    if(id_len>MAX_IDENDIFYER_LEN)
+    {
+        error_occur("Variable name cannot be greter than %d\n",MAX_IDENDIFYER_LEN);
+        error_occur("Current variable name length is %d\n",id_len);
+        exit(-1);
+    }
 }
 
 void free_parser(Parser* p)
@@ -197,14 +208,36 @@ static bool is_power_of_2(int n)
     return true;
 }
 
-
-int visit(Ast *root);
-
-int visit_bin_op(Ast *node)
+int visit_assign_op(Ast* node)
 {
+    if(node->children[0]->type!=IDENTIFYER)
+    {
+        error_occur("Cannot assign. Invalid expression.\n");
+        exit(-1);
+    }
+
+    Var_items* var = NULL;
+    const char* var_name = node->children[0]->value.identifer;
+    HASH_FIND_STR(var_memory,var_name,var);
+    if(!var)
+    {
+        error_occur("Variable \"%s\" not decalred\n.",var_name);
+        exit(-1);
+    }
+
+    var->value = visit(node->children[1]); 
+
+    HASH_FIND_STR(var_memory,var_name,var);
+    return var->value;
+}
+
+int visit_bin_op(Ast* node)
+{
+
+    TokenType type = node->type;
     int left = visit(node->children[0]);
     int right = visit(node->children[1]);
-    TokenType type = node->type;
+
     switch (type)
     {
     case PLUS:
@@ -245,16 +278,25 @@ int visit_number(Ast* node)
 
 int visit_unary(Ast* node)
 {
-    if (node->type == PLUS)
+    switch(node->type)
+    {
+    case PLUS:
     {
         debug("+ ");
         return visit(node->children[0]);
     }
-    else
+    case MINUS:
     {
         debug("- ");
         return -visit(node->children[0]);
     }
+    case K_PRINT:
+    {
+        int res = visit(node->children[0]);
+        return printf("%d\n",res);
+    }
+    }
+    return 0;
 }
 
 int visit_declaration(Ast* root)
@@ -281,10 +323,24 @@ int visit_declaration(Ast* root)
 
 Ast* program(Parser* p)
 {
+    // Program :: Expr | statement 
     Ast* root = new_ast(-1,PROGRAM); 
     while(p->current_token.type != FILE_END)
     {
-        vector_append(root->children,declaration(p));
+        switch(p->current_token.type)
+        {
+            case K_VAR:
+            {
+                vector_append(root->children,declaration(p));
+                break;
+            }
+            default:
+            {
+                Ast* expression = expr(p,0);
+                eat(p,SEMICOLON);
+                vector_append(root->children,expression);
+            }
+        }
     }
     return root;
 }
@@ -305,8 +361,9 @@ int visit_identifyer(Ast* root)
         error_occur("Variable \"%s\" not declared.\n",
                     root->value.identifer);
     }
-    return var->value;
+   return var->value;
 }
+
 int visit(Ast *root)
 {
     switch (root->node_type)
@@ -315,6 +372,8 @@ int visit(Ast *root)
         return visit_unary(root);
     case BINARY_OP:
         return visit_bin_op(root);
+    case ASSIGN_OP:
+        return visit_assign_op(root);
     case NUM:
         return visit_number(root);
     case VAR_DECL:
@@ -332,6 +391,8 @@ int bp(TokenType token_type)
 {
     switch (token_type) 
     {
+        case ASSIGN:
+            return 9;
         case PLUS:
         case MINUS:
             return 10;
@@ -350,12 +411,13 @@ int bp(TokenType token_type)
     
 Ast* nud(Parser* p)
 {
+    Token token = p->current_token;
+    TokenType type  = token.type;
     switch(p->current_token.type)
     {
         case PLUS:
         case MINUS:
         {
-                TokenType type = p->current_token.type;
                 eat(p,type);
                 Ast* tmp = unary_op(type,expr(p,bp(PREFIX)));
                 return tmp;
@@ -367,11 +429,24 @@ Ast* nud(Parser* p)
 
         case LEFT_PARAN:
         {
-            TokenType type = p->current_token.type;
             eat(p,type);
             Ast* tmp = expr(p,0);
             eat(p,RIGHT_PARAN);
             return tmp; 
+        }
+        case K_PRINT:
+        {
+                eat(p,type);
+                Ast* tmp = unary_op(K_PRINT,expr(p,bp(PREFIX)));
+                return tmp;
+        }
+        case IDENTIFYER:
+        {
+            Ast* tmp = new_ast(IDENTIFYER, ID);
+            assert_id(token.lexeme);
+            strncpy(tmp->value.identifer,token.lexeme,MAX_IDENDIFYER_LEN); 
+            eat(p,IDENTIFYER);
+           return tmp; 
         }
         default:
         {
@@ -389,8 +464,17 @@ Ast* led(Parser* p,Ast* left)
 {
     TokenType type = p->current_token.type;
     eat(p,type);
-    if(type == POWER)
-        return bin_op(type,left, expr(p,bp(type)-1));
+    switch(type)
+    {
+        case POWER:
+            return bin_op(type,left, expr(p,bp(type)-1));
+        case ASSIGN:
+        {
+            Ast* temp = bin_op(type,left, expr(p,bp(type)-1));
+            temp->node_type = ASSIGN_OP;
+            return temp;
+        }
+    }
     return bin_op(type,left, expr(p,bp(type)+1));
 
 }
@@ -419,13 +503,8 @@ Ast* declaration(Parser* p)
                     token_to_str(token.type));
         exit(-1);
     }
-    int id_len = strlen(token.lexeme);
-    if(id_len>MAX_IDENDIFYER_LEN)
-    {
-        error_occur("Variable name cannot be greter than %d\n",MAX_IDENDIFYER_LEN);
-        error_occur("Current variable name length is %d\n",id_len);
-        exit(-1);
-    }
+   
+    assert_id(token.lexeme);
 
     Ast* id = new_ast(IDENTIFYER,ID);
     strcpy(id->value.identifer,token.lexeme);
@@ -445,16 +524,19 @@ Ast* declaration(Parser* p)
     return var;
 }
 
-int main(void)
+int main(int argc, char** argv)
 {
-    Parser *parser = init_parser("test.lang");
+    if(argc==1)
+    {
+        printf("USES: interpreter <sourcefile>\n");
+        return 0;
+    }
+    argv++; 
+    Parser *parser = init_parser(*argv);
 
-    // Ast *e = expr(parser,0);
     Ast *e = program(parser); 
-    int ans = visit(e);
-
-    // printf("\n%d\n", ans);
-
+    visit(e);
+    fflush(stdout);
     Var_items *current, *tmp;
     HASH_ITER(hh,var_memory, current, tmp) {
         HASH_DEL(var_memory, current);
