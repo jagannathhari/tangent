@@ -46,9 +46,11 @@ bool _token_is(TokenType token_type, ...)
 
 inline void print_token(Token token)
 {
-    printf("Token(%s, %d, \"%s\")\n",
+    printf("Token(%s,line=%d,line_start=%d,offset=%d,\"%s\")\n",
             token_to_str(token.type),
             token.line,
+            token.line_start,
+            token.offset,
             token.lexeme
           );
 }
@@ -111,7 +113,10 @@ static Token string(ScannerState *ss)
     while (peek(ss) != '"' && !is_at_end(ss))
     {
         if (peek(ss) == '\n')
+        {
             ss->line++;
+            ss->line_start = ss->current;
+        }
         advance(ss);
     }
     if (is_at_end(ss))
@@ -122,11 +127,14 @@ static Token string(ScannerState *ss)
     advance(ss); // consume "
 
     Token token;
-    token.type   = STRING;
-    token.line   =  ss->line;
-    token.lexeme = substr(ss->source, ss->start + 1, ss->current - 1);
+    token.type       = STRING;
+    token.line       = ss->line;
+    token.offset     = ss->start;
+    token.line_start = ss->line_start;
+    token.lexeme     = substr(ss->source, ss->start + 1, ss->current - 1);
 
-    ss->start    = ss->current;
+    ss->start        = ss->current;
+
     return token;
 }
 
@@ -145,11 +153,13 @@ static Token octal_number(ScannerState *ss)
 
     Token token;
 
-    token.type   = OCTAL_CONSTANT;
-    token.lexeme = substr(ss->source,ss->start,ss->current);
-    token.line   = ss->line;
+    token.type       = OCTAL_CONSTANT;
+    token.lexeme     = substr(ss->source,ss->start,ss->current);
+    token.line       = ss->line;
+    token.line_start = ss->line_start;
+    token.offset     = ss->start;
 
-    ss->start    = ss->current;
+    ss->start        = ss->current;
 
     return token;
 }
@@ -183,11 +193,13 @@ static Token hex_number(ScannerState *ss)
     }
 
     Token token;
-    token.type   = HEX_CONSTANT;
-    token.line   = ss->line;
-    token.lexeme = lexeme; 
+    token.type       = HEX_CONSTANT;
+    token.line       = ss->line;
+    token.offset     = ss->start;
+    token.line_start = ss->line_start;
+    token.lexeme     = lexeme; 
 
-    ss->start    = ss->current;
+    ss->start        = ss->current;
  
     return token;
 }
@@ -212,11 +224,13 @@ static Token number_decimal(ScannerState *ss)
     }
 
     Token token;
-    token.type   = is_float ? FLOAT_CONSTANT : INT_CONSTANT;
-    token.line   = ss->line;
-    token.lexeme = substr(ss->source,ss->start, ss->current);
+    token.type       = is_float ? FLOAT_CONSTANT : INT_CONSTANT;
+    token.line       = ss->line;
+    token.offset     = ss->start;
+    token.line_start = ss->line_start;
+    token.lexeme     = substr(ss->source,ss->start, ss->current);
 
-    ss->start    = ss->current;
+    ss->start        = ss->current;
 
     return token;
 }
@@ -252,7 +266,6 @@ static TokenType is_keyword(const char *identifier)
     else if (STRCMP("if"))     return K_IF;
     else if (STRCMP("and"))    return K_AND;
     else if (STRCMP("fn"))     return K_FUNCTION;
-    else if (STRCMP("var"))    return K_VAR;
     else if (STRCMP("int"))    return K_INT;
     else if (STRCMP("print"))  return K_PRINT;
     else                       return IDENTIFYER;
@@ -266,11 +279,13 @@ static Token identifier(ScannerState *ss)
     char *identifier = substr(ss->source, ss->start, ss->current);
 
     Token token;
-    token.type   = is_keyword(identifier);
-    token.line   = ss->line;
-    token.lexeme = substr(ss->source, ss->start, ss->current);
+    token.type       = is_keyword(identifier);
+    token.line       = ss->line;
+    token.offset     = ss->start;
+    token.line_start = ss->line_start;
+    token.lexeme     = substr(ss->source, ss->start, ss->current);
 
-    ss->start    = ss->current;
+    ss->start        = ss->current;
 
     return token;
 } 
@@ -278,11 +293,13 @@ static Token identifier(ScannerState *ss)
 static Token build_token(TokenType token_type , ScannerState *ss)
 {
     Token token;
-    token.type   = token_type;
-    token.line   = ss->line;
-    token.lexeme =  substr(ss->source, ss->start, ss->current); 
+    token.type       = token_type;
+    token.line       = ss->line;
+    token.offset     = ss->start;
+    token.line_start = ss->line_start;
+    token.lexeme     =  substr(ss->source, ss->start, ss->current); 
 
-    ss->start    = ss->current;
+    ss->start        = ss->current;
 
     return token;
 }
@@ -334,9 +351,12 @@ Token next_token(ScannerState *ss)
             return build_token(match('=', ss) ? GREATER_EQUAL : GREATER_THAN,
                                ss);
         case '\n':
+        {
             ss->line++;
-            ss->start = ss->current;
+            ss->line_start = ss->current;
+            ss->start      = ss->current;
             break;
+        }
         case '"':
             return string(ss);
         case ' ':
@@ -357,9 +377,11 @@ Token next_token(ScannerState *ss)
     }
 
     Token token;
-    token.type   = FILE_END;
-    token.line   = ss->line;
-    token.lexeme = NULL;
+    token.type       = FILE_END;
+    token.line       = ss->line;
+    token.offset     = ss->start;
+    token.line_start = ss->line_start;
+    token.lexeme     = NULL;
 
     return token;
 }
