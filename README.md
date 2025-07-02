@@ -4,7 +4,7 @@ A simple programming language. Not completed yet.
 Inspired by odin and transpiled to C/C++;
 
 ```
-main :: porc()
+main :: proc()
 {
     count:int = 0;
 
