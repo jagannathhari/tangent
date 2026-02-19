@@ -23,7 +23,7 @@ class NodeType(Enum):
     FUNCTION = "Function" 
     EXPR = "Expr"
     EXPR_LIST = "Expr_list"
-
+    POINTER = "pointer"
     NUM_INT = "num_int"
     NUM_HEX = "num_hex"
     NUM_OCT = "num_oct"
@@ -256,8 +256,10 @@ class Parse:
     def var_decl(self):
         #var_decl -> <id_list>:=<expr_list> | <id_list>:<type>=<expr_list> | 
         # <id_list>  = <expr_list> 
-
         id_list = self.id_list()
+
+
+        #var_decl -> <id_list>:=<expr_list>
         if self.current_token.type == TokenType.COLON_EQUAL:
             self.eat(TokenType.COLON_EQUAL)
             expr_list = self.expr_list()
@@ -265,6 +267,7 @@ class Parse:
             node.add(id_list,expr_list)
             return node 
 
+        # <id_list>  = <expr_list>
         if self.current_token.type == TokenType.EQUAL:
             ass_op = Ast(NodeType.ASSIGN_OP,self.current_token)
             self.eat(TokenType.EQUAL)
@@ -273,8 +276,14 @@ class Parse:
             return ass_op
 
         self.eat(TokenType.COLON)
+
+        pointer_level = 0
+        if self.current_token.type == TokenType.STAR:
+            while self.current_token.type == TokenType.STAR:
+                pointer_level += 1
+                self.eat(TokenType.STAR)
         if self.current_token.type == TokenType.ID or self.is_premitive_dtype(self.current_token.type):
-            type_id = self.current_token
+            type_id = Ast(NodeType.ID,self.current_token)
             self.eat(self.current_token.type)
             if(self.current_token.type==TokenType.EQUAL):
                 self.eat(TokenType.EQUAL)
@@ -282,8 +291,9 @@ class Parse:
                 node = Ast(NodeType.VAR_DECL_WITH_INIT)
                 node.add(id_list,type_id,expr_list)
                 return node
+
             node = Ast(NodeType.VAR_DECL_SPEC)
-            node.add(id_list,type_id)
+            node.add(id_list,Ast(NodeType.POINTER,pointer_level),type_id)
             return node
         else:
             print("Handle error")
