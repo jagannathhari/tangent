@@ -28,7 +28,6 @@ class TokenType(Enum):
     STAR_EQUAL = "*="
     
     DIVIDE = "/"
-    DIVIDE_DIVIDE= "//"
     DIVIDE_EQUAL = "/="
     
     GREATER = ">"
@@ -118,7 +117,6 @@ class Lexer:
         self.line = 1
         self.line_start = 0
         self.init_lexer()
-
     def init_lexer(self):
         if not os.path.isfile(self.src):
             print("Error: File",repr(self.src),"not found.")
@@ -180,6 +178,31 @@ class Lexer:
         return t
 
 
+    def eat_single_line_comment(self):
+        while not self.is_at_end() and self.peek()!='\n':
+            self.advance()
+        self.curr = self.pos
+        # print(self.content[self.curr:self.pos])
+
+    def eat_multiline_comment(self):
+        count = 1
+        while (not self.is_at_end() and count>0):
+            c = self.advance()
+            match c: 
+                case '*':
+                    if(self.peek()=='/'):
+                        self.advance()
+                        count-=1
+                case '/':
+                    if(self.peek()=='*'):
+                        self.advance()
+                        count += 1
+        # print(self.content[self.curr:self.pos])
+        if(count!=0):
+            print("Unterminated comment.")
+            sys.exit()
+
+        self.curr = self.pos
 
     def string(self,close='"'):
         start = self.pos
@@ -293,7 +316,10 @@ class Lexer:
                 case '/':
                     if self.match('/'):
                         self.advance()
-                        return self.build_token(TokenType.DIVIDE_DIVIDE)
+                        self.eat_single_line_comment()
+                    elif self.match('*'):
+                        self.advance()
+                        self.eat_multiline_comment()
                     elif self.match('='):
                         self.advance()
                         return self.build_token(TokenType.DIVIDE_EQUAL)
