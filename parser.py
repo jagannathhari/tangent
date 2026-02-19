@@ -362,7 +362,27 @@ class Visit:
         self.src  = src 
         self.content_len = 0
         self.content = ""
+        self.scopes = [{}]
         self.init()
+
+    def enter_scope(self):
+       self.scopes.append({})
+
+    def exit_scope(self):
+        self.scopes.pop()
+
+    def declare(self,name,value=None):
+        if name in self.scopes[-1]:
+            print("Redeclaration:",name)
+            sys.exit()
+        self.scopes[-1][name] = value
+
+    def resolve(self,name):
+        for s in reversed(self.scopes):
+            if name in s:
+                return s[name]
+        print("Undefined:",name)
+        sys.exit()
 
     def init(self):
         if not os.path.isfile(self.src):
