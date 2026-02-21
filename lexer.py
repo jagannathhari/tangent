@@ -3,16 +3,17 @@ import sys
 
 from enum import Enum
 
+
 class TokenType(Enum):
     # paranthesis
     LPARN = "("
     RPARN = ")"
 
-    LSQR_BRC= "["
-    RSQR_BRC= "]"
+    LSQR_BRC = "["
+    RSQR_BRC = "]"
 
     BLOCK_OPEN = "{"
-    BLOCK_CLOSE= "}"
+    BLOCK_CLOSE = "}"
 
     # arithmatic
     PLUS = "+"
@@ -20,16 +21,16 @@ class TokenType(Enum):
     PLUS_EQUAL = "+="
 
     MINUS = "-"
-    MINUS_MINUS= "--"
+    MINUS_MINUS = "--"
     MINUS_EQUAL = "-="
 
     STAR = "*"
-    STAR_STAR= "**"
+    STAR_STAR = "**"
     STAR_EQUAL = "*="
-    
+
     DIVIDE = "/"
     DIVIDE_EQUAL = "/="
-    
+
     GREATER = ">"
     GREATER_EQUAL = ">="
 
@@ -46,12 +47,12 @@ class TokenType(Enum):
     AND_EQUAL = "&="
     PIPE_EQUAL = "|="
 
-
     NOT = "!"
     POUND = "#"
     MOD = "%"
     CARET = "^"
     PIPE = "|"
+    PIPE_PIPE = "||"
     COMMA = ","
     DOT = "."
     DOT_DOT = ".."
@@ -236,11 +237,11 @@ class Lexer:
         else:
             return self.real()
 
-    def build_token(self,token_type):
+    def build_token(self, token_type):
         t = Token(token_type)
         t.line = self.line
-        t.line_start = self.line_start;
-        t.lexeme = self.content[self.curr:self.pos]
+        t.line_start = self.line_start
+        t.lexeme = self.content[self.curr : self.pos]
         t.start_pos = self.curr
         self.curr = self.pos
         return t
@@ -249,59 +250,59 @@ class Lexer:
         while self.pos < self.len:
             c = self.advance()
             match c:
-                case '!':
-                    if self.match('='):
+                case "!":
+                    if self.match("="):
                         self.advance()
                         return self.build_token(TokenType.NOT_EQUAL)
                     else:
                         return self.build_token(TokenType.NOT)
-                case '*':
+                case "*":
                     # if self.match('*'):
                     #     self.advance()
                     #     return self.build_token(TokenType.STAR_STAR)
-                    if self.match('='):
+                    if self.match("="):
                         self.advance()
                         return self.build_token(TokenType.STAR_EQUAL)
                     else:
                         return self.build_token(TokenType.STAR)
-                case '+':
-                    if self.match('+'):
+                case "+":
+                    if self.match("+"):
                         self.advance()
                         return self.build_token(TokenType.PLUS_PLUS)
-                    elif self.match('='):
+                    elif self.match("="):
                         self.advance()
                         return self.build_token(TokenType.PLUS_EQUAL)
                     else:
                         return self.build_token(TokenType.PLUS)
-                case '-':
-                    if self.match('-'):
+                case "-":
+                    if self.match("-"):
                         self.advance()
                         return self.build_token(TokenType.MINUS_MINUS)
-                    elif self.match('='):
+                    elif self.match("="):
                         self.advance()
                         return self.build_token(TokenType.MINUS_EQUAL)
                     else:
                         return self.build_token(TokenType.MINUS)
-                case '/':
-                    if self.match('/'):
+                case "/":
+                    if self.match("/"):
                         self.advance()
                         self.eat_single_line_comment()
-                    elif self.match('*'):
+                    elif self.match("*"):
                         self.advance()
                         self.eat_multiline_comment()
-                    elif self.match('='):
+                    elif self.match("="):
                         self.advance()
                         return self.build_token(TokenType.DIVIDE_EQUAL)
                     else:
                         return self.build_token(TokenType.DIVIDE)
-                case '=':
-                    if self.match('='):
+                case "=":
+                    if self.match("="):
                         self.advance()
                         return self.build_token(TokenType.EQUAL_EQUAL)
                     else:
                         return self.build_token(TokenType.EQUAL)
-                case '>':
-                    if self.match('='):
+                case ">":
+                    if self.match("="):
                         self.advance()
                         return self.build_token(TokenType.GREATER_EQUAL)
                     elif self.match(">"):
@@ -309,8 +310,8 @@ class Lexer:
                         return self.build_token(TokenType.RIGHT_SHIFT)
                     else:
                         return self.build_token(TokenType.GREATER)
-                case '<':
-                    if self.match('='):
+                case "<":
+                    if self.match("="):
                         self.advance()
                         return self.build_token(TokenType.LESS_EQUAL)
                     elif self.match("<"):
@@ -318,61 +319,64 @@ class Lexer:
                         return self.build_token(TokenType.LEFT_SHIFT)
                     else:
                         return self.build_token(TokenType.LESS)
-                case '(':
+                case "(":
                     return self.build_token(TokenType.LPARN)
-                case ')':
+                case ")":
                     return self.build_token(TokenType.RPARN)
-                case '{':
+                case "{":
                     return self.build_token(TokenType.BLOCK_OPEN)
-                case '}':
+                case "}":
                     return self.build_token(TokenType.BLOCK_CLOSE)
-                case '[':
+                case "[":
                     return self.build_token(TokenType.LSQR_BRC)
-                case ']':
+                case "]":
                     return self.build_token(TokenType.RSQR_BRC)
-                case ',':
+                case ",":
                     return self.build_token(TokenType.COMMA)
-                case '.':
-                    if(self.match('.')):
+                case ".":
+                    if self.match("."):
                         self.advance()
                         return self.build_token(TokenType.DOT_DOT)
                     return self.build_token(TokenType.DOT)
-                case ':':
-                    if(self.match(':')):
+                case ":":
+                    if self.match(":"):
                         self.advance()
                         return self.build_token(TokenType.COLON_COLON)
-                    elif(self.match('=')):
+                    elif self.match("="):
                         self.advance()
                         return self.build_token(TokenType.COLON_EQUAL)
                     return self.build_token(TokenType.COLON)
-                case '&':
-                    if(self.match("&")):
+                case "&":
+                    if self.match("&"):
                         return self.build_token(TokenType.AND_AND)
                     return self.build_token(TokenType.AND)
-                case '|':
-                    if(self.match("=")):
+                case "|":
+                    if self.match("="):
                         self.advance()
-                        return self.build_token(TokenType.AND_AND)
+                        return self.build_token(TokenType.PIPE_EQUAL)
+                    elif self.match("|"):
+                        self.advance()
+                        return self.build_token(TokenType.PIPE_PIPE)
                     return self.build_token(TokenType.PIPE)
-                case '^':
+                case "^":
                     return self.build_token(TokenType.CARET)
-                case '%':
+                case "%":
                     return self.build_token(TokenType.MOD)
-                case '~':
+                case "~":
                     return self.build_token(TokenType.TILDA)
-                case '?':
+                case "?":
                     return self.build_token(TokenType.QUESTION)
-                case '#':
+                case "#":
                     return self.build_token(TokenType.POUND)
-                case ';':
+                case ";":
                     return self.build_token(TokenType.SEMICOLON)
                 case '"':
                     return self.string()
-                case '`':
-                    return self.string('`') 
+                case "`":
+                    return self.string("`")
                 case "'":
                     return self.build_token(TokenType.SINGLE_QUOTE)
-                case " "|"\t":
+                case " " | "\t":
                     self.curr = self.pos
                 case "\n":
                     self.line += 1
@@ -383,4 +387,4 @@ class Lexer:
                         return self.identifier()
                     elif c.isdigit():
                         return self.number(c)
-        return self.build_token(TokenType.EOF) 
+        return self.build_token(TokenType.EOF)
