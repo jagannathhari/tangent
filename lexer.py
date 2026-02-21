@@ -66,19 +66,7 @@ class TokenType(Enum):
     SINGLE_QUOTE = "'"
     QUESTION = "?"
 
-    #keyword
-    I8  ="int8"
-    I16 ="int16" 
-    I32 ="int32"
-    I64 ="int64"
-
-    U8  ="uint8"
-    U16 ="uint16" 
-    U32 ="uint32"
-    U64 ="uint64"
-    STR = "str"
-    FLOAT = "Float"
-    DOUBLE = "Double"
+    # keyword
 
     INT_LITERAL = "integer_constant"
     OCT_LITERAL = "oct_constant"
@@ -86,21 +74,18 @@ class TokenType(Enum):
     BIN_LITERAL = "bin_constant"
     FLOAT_LITERAL = "float_constant"
     STRING = "String"
-    BOOL = "bool"
     FORMATED_STRING = "Formated_string"
     PREFIX = "prefix"
 
-    TRUE = "true"
-    FALSE = "false"
-    FOR = "for"
     ID = "id"
     EOF = "EOF"
 
+
 class Token:
-    def __init__(self,token_type):
-        self.type = token_type 
+    def __init__(self, token_type):
+        self.type = token_type
         self.line = 1
-        self.lexeme = "" 
+        self.lexeme = ""
         self.start_pos = 0
         self.line_start = 0
 
@@ -109,7 +94,7 @@ class Token:
 
 
 class Lexer:
-    def __init__(self,src):
+    def __init__(self, src):
         self.pos = 0
         self.curr = 0
         self.len = 0
@@ -117,25 +102,26 @@ class Lexer:
         self.line = 1
         self.line_start = 0
         self.init_lexer()
+
     def init_lexer(self):
         if not os.path.isfile(self.src):
-            print("Error: File",repr(self.src),"not found.")
-            sys.exit(0) 
+            print("Error: File", repr(self.src), "not found.")
+            sys.exit(0)
 
-        with open(self.src,"r") as f:
+        with open(self.src, "r") as f:
             self.content = f.read().rstrip()
         self.len = len(self.content)
 
     def get_state(self):
-        return self.pos,self.curr,self.len,self.line,self.line_start
+        return self.pos, self.curr, self.len, self.line, self.line_start
 
-    def set_state(self,state):
-        self.pos,self.curr,self.len,self.line,self.line_start = state
+    def set_state(self, state):
+        self.pos, self.curr, self.len, self.line, self.line_start = state
 
     def is_at_end(self):
         return self.len == self.pos
 
-    def match(self,expected):
+    def match(self, expected):
         if self.is_at_end() or self.content[self.pos] != expected:
             return False
         return True
@@ -153,81 +139,64 @@ class Lexer:
 
     def identifier(self):
 
-        while self.peek().isalnum() or self.peek() == '_':
-           self.advance() 
+        while self.peek().isalnum() or self.peek() == "_":
+            self.advance()
         t = self.build_token(TokenType.ID)
-
-        ids = {"i8":TokenType.I8,
-               "i16":TokenType.I16,
-               "i32":TokenType.I32,
-               "i64":TokenType.I64,
-               "U8":TokenType.U8,
-               "U16":TokenType.U16,
-               "u32":TokenType.U32,
-               "u64":TokenType.U64,
-               "float":TokenType.FLOAT,
-               "double":TokenType.DOUBLE,
-               "str":TokenType.STR,
-               "bool":TokenType.BOOL,
-               "true":TokenType.TRUE,
-               "false":TokenType.FALSE,
-               "for":TokenType.FOR
-               }
-        if t.lexeme in ids:
-            t.type = ids[t.lexeme]
         return t
 
-
     def eat_single_line_comment(self):
-        while not self.is_at_end() and self.peek()!='\n':
+        while not self.is_at_end() and self.peek() != "\n":
             self.advance()
         self.curr = self.pos
         # print(self.content[self.curr:self.pos])
 
     def eat_multiline_comment(self):
         count = 1
-        while (not self.is_at_end() and count>0):
+        while not self.is_at_end() and count > 0:
             c = self.advance()
-            match c: 
-                case '*':
-                    if(self.peek()=='/'):
+            match c:
+                case "*":
+                    if self.peek() == "/":
                         self.advance()
-                        count-=1
-                case '/':
-                    if(self.peek()=='*'):
+                        count -= 1
+                case "/":
+                    if self.peek() == "*":
                         self.advance()
                         count += 1
+                    elif self.peek() == '/':
+                        self.advance()
+                case '\n':
+                    self.line += 1
+                    self.line_start = self.pos
         # print(self.content[self.curr:self.pos])
-        if(count!=0):
+        if count != 0:
             print("Unterminated comment.")
             sys.exit()
 
         self.curr = self.pos
 
-    def string(self,close='"'):
+    def string(self, close='"'):
         start = self.pos
-        while self.peek()!=close and not self.is_at_end():
+        while self.peek() != close and not self.is_at_end():
             c = self.peek()
             match c:
-                case '\\':
+                case "\\":
                     self.advance()
             self.advance()
-        self.advance() # consume close
+        self.advance()  # consume close
         t = Token(TokenType.STRING if close == '"' else TokenType.FORMATED_STRING)
-        t.lexeme = self.content[start:self.pos-1]
+        t.lexeme = self.content[start : self.pos - 1]
         t.line = self.line
         t.line_start = self.line_start
         t.start_pos = self.curr
         self.curr = self.pos
         return t
 
-
-
     def real(self):
         is_float = False
         while not self.is_at_end() and self.peek().isdigit():
             self.advance()
-            if self.peek() == '.':
+            if self.peek() == ".":
                 if is_float:
                     return self.build_token(TokenType.FLOAT_LITERAL)
                 is_float = True
@@ -236,27 +205,27 @@ class Lexer:
             return self.build_token(TokenType.FLOAT_LITERAL)
         return self.build_token(TokenType.INT_LITERAL)
 
-    def number(self,first_char):
+    def number(self, first_char):
         base = 0
         allowed = ""
         number_type = TokenType.INT_LITERAL
-        if first_char == '0':
+        if first_char == "0":
             c = self.peek()
             match c:
-                case 'x'|'X':
+                case "x" | "X":
                     base = 16
                     allowed = "0123456789abcdefABCDEF"
                     number_type = TokenType.HEX_LITERAL
-                case 'o' | 'O':
+                case "o" | "O":
                     allowed = "01234567"
                     base = 8
                     number_type = TokenType.OCT_LITERAL
-                case 'b': 
+                case "b":
                     allowed = "01"
                     base = 2
                     number_type = TokenType.BIN_LITERAL
 
-            number = '0'
+            number = "0"
             if base != 0:
                 number += c
                 self.advance()
