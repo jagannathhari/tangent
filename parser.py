@@ -7,7 +7,7 @@ from typing import Optional, Dict
 
 from lexer import Lexer
 from lexer import TokenType
-
+from ir import*
 symbol_table = {}
 
 import hashlib
@@ -19,8 +19,10 @@ def mangle(sig):
     h = hashlib.blake2b(sig.encode(), digest_size=16).hexdigest()
     print(h)
 
-def enclose(s,char='"'):
+
+def enclose(s, char='"'):
     return f"{char}{s}{char}"
+
 
 dtype_map = {
     "i8": "int8_t",
@@ -32,27 +34,59 @@ dtype_map = {
     "u32": "uint32_t",
     "u64": "uint64_t",
     "str": "char*",
-    "int":"int",
+    "int": "int",
     "float": "float",
 }
 
 fmt_map = {
-    "i8":  {"printf": {"d": "PRId8", "x": "PRIx8"}, "scanf": {"d": "SCNd8", "x": "SCNx8"}},
-    "i16": {"printf": {"d": "PRId16", "x": "PRIx16"}, "scanf": {"d": "SCNd16", "x": "SCNx16"}},
-    "i32": {"printf": {"d": "PRId32", "x": "PRIx32"}, "scanf": {"d": "SCNd32", "x": "SCNx32"}},
-    "i64": {"printf": {"d": "PRId64", "x": "PRIx64"}, "scanf": {"d": "SCNd64", "x": "SCNx64"}},
-    "u8":  {"printf": {"d": "PRIu8",  "x": "PRIx8"}, "scanf": {"d": "SCNu8",  "x": "SCNx8"}},
-    "u16": {"printf": {"d": "PRIu16", "x": "PRIx16"}, "scanf": {"d": "SCNu16", "x": "SCNx16"}},
-    "u32": {"printf": {"d": "PRIu32", "x": "PRIx32"}, "scanf": {"d": "SCNu32", "x": "SCNx32"}},
-    "u64": {"printf": {"d": "PRIu64", "x": "PRIx64"}, "scanf": {"d": "SCNu64", "x": "SCNx64"}},
-    "float": {"printf": {"d": enclose("f"), "x": enclose("f")}, "scanf": {"d": enclose("f"), "x": enclose("f")}},
-    "int": {"printf": {"d": enclose("d"),"x": enclose("x")},"scanf": {"d": enclose("d"),"x":enclose("x")}},
+    "i8": {
+        "printf": {"d": "PRId8", "x": "PRIx8"},
+        "scanf": {"d": "SCNd8", "x": "SCNx8"},
+    },
+    "i16": {
+        "printf": {"d": "PRId16", "x": "PRIx16"},
+        "scanf": {"d": "SCNd16", "x": "SCNx16"},
+    },
+    "i32": {
+        "printf": {"d": "PRId32", "x": "PRIx32"},
+        "scanf": {"d": "SCNd32", "x": "SCNx32"},
+    },
+    "i64": {
+        "printf": {"d": "PRId64", "x": "PRIx64"},
+        "scanf": {"d": "SCNd64", "x": "SCNx64"},
+    },
+    "u8": {
+        "printf": {"d": "PRIu8", "x": "PRIx8"},
+        "scanf": {"d": "SCNu8", "x": "SCNx8"},
+    },
+    "u16": {
+        "printf": {"d": "PRIu16", "x": "PRIx16"},
+        "scanf": {"d": "SCNu16", "x": "SCNx16"},
+    },
+    "u32": {
+        "printf": {"d": "PRIu32", "x": "PRIx32"},
+        "scanf": {"d": "SCNu32", "x": "SCNx32"},
+    },
+    "u64": {
+        "printf": {"d": "PRIu64", "x": "PRIx64"},
+        "scanf": {"d": "SCNu64", "x": "SCNx64"},
+    },
+    "float": {
+        "printf": {"d": enclose("f"), "x": enclose("f")},
+        "scanf": {"d": enclose("f"), "x": enclose("f")},
+    },
+    "int": {
+        "printf": {"d": enclose("d"), "x": enclose("x")},
+        "scanf": {"d": enclose("d"), "x": enclose("x")},
+    },
 }
-  
+
+
 class NodeType(Enum):
     UNARY_OP = "Unary_op"
     BIN_OP = "Binary_op"
     ASSIGN_OP = "Assign_op"
+    COMPUND_ASSIGN = "compund assign"
     VAR_DECL = "Var_decl"
     VAR_DECL_SPEC = "Var_decl_SPEC"
     VAR_DECL_WITH_INIT = "Var_decl_with_init"
@@ -80,6 +114,11 @@ class NodeType(Enum):
     CONST = "constant"
     STRUCT = "struct"
     ENUM = "Enum"
+    LOOP = "Loop" 
+    INFINITE_LOOP= "Infinite_loop" 
+    IF = "if"
+    BREAK = "break"
+    CONTINUE = "continue"
 
 
 class Ast:
@@ -294,14 +333,14 @@ class Parse:
     def expr(self, rbp=0):
         left = self.nud()  # consumes the token
         if not left:
-            return Ast(NodeType.EMPTY_EXR,self.current_token)
+            return Ast(NodeType.EMPTY_EXR, self.current_token)
         while self.bp(self.current_token.type) > rbp:
             left = self.led(left)
         return left
 
     def return_statement(self):
         # return_statement -> return <expr_list>
-        node = Ast(NodeType.RETURN_STATEMENT)
+        node = Ast(NodeType.RETURN_STATEMENT,self.current_token)
         self.eat(TokenType.ID)
         node_expr_list = self.expr_list()
         node.add(node_expr_list)
@@ -311,6 +350,13 @@ class Parse:
         # return_list -> <id> | <return_list>,<id>
         node = Ast(NodeType.RETURN_LIST)
 
+        is_surrounded = False
+        token_lparn = None
+        if self.current_token.type == TokenType.LPARN:
+            is_surrounded = True
+            token_lparn = self.current_token
+            self.eat(TokenType.LPARN)
+
         if self.current_token.type == TokenType.ID:
             node.add(Ast(NodeType.ID, self.current_token))
             self.eat(self.current_token.type)
@@ -318,11 +364,15 @@ class Parse:
                 self.eat(TokenType.COMMA)
                 if not self.current_token.type == TokenType.ID:
                     self.draw_pointer(self.current_token)
-                    print("Syntax Error, not allowed.")
+                    print("Syntax Error: not allowed.")
                     sys.exit()
 
                 node.add(Ast(NodeType.ID, self.current_token))
                 self.eat(self.current_token.type)
+        if is_surrounded and (not self.eat(TokenType.RPARN)):
+            self.draw_pointer(token_lparn)
+            print("Syntax Error: This bracket never closed.")
+            sys.exit()
         return node
 
     def id_list(self):
@@ -340,20 +390,32 @@ class Parse:
     def expr_list(self):
         # id_list -> <expr> | <expr>,<expr>
         # print(self.current_token)
-        node = Ast(NodeType.EXPR_LIST) 
+        node = Ast(NodeType.EXPR_LIST)
         node.add(self.expr())
         while self.current_token.type == TokenType.COMMA:
             self.eat(TokenType.COMMA)
             node_expr = self.expr()
             if node_expr.type == NodeType.EMPTY_EXR:
-               self.draw_pointer(self.prev_token) 
-               print("Syntax Error: Expected Expression here.")
-               sys.exit()
+                self.draw_pointer(self.prev_token)
+                print("Syntax Error: Expected Expression here.")
+                sys.exit()
             node.add(node_expr)
         return node
 
     def var_decl_with_init(self):
         pass
+
+    def compund_assignment(self):
+        #id -> id (+= -= ) expr
+        var_name = Ast(NodeType.ID,self.current_token)
+        self.eat(TokenType.ID)
+        t = self.current_token
+        self.eat(self.current_token.type)
+        node = Ast(NodeType.COMPUND_ASSIGN,t)
+        node.add(var_name)
+        node.add(self.expr())
+        return node
+
 
     def var_decl(self):
         # var_decl -> <id_list>:=<expr_list> | <id_list>:<id>=<expr_list> |
@@ -414,7 +476,7 @@ class Parse:
         return node
 
     def function(self):
-        # function -> <id> :: () <block_statement>
+        # function -> <id> :: () <return_list> <block_statement>
         node = Ast(NodeType.FUNCTION)
         node.add(Ast(NodeType.ID, self.current_token))
         self.eat(TokenType.ID)
@@ -434,6 +496,32 @@ class Parse:
         node.add(self.block_statement())
         return node
 
+    def break_statement(self):
+        node = Ast(NodeType.BREAK)
+        self.eat(TokenType.ID)
+        if self.current_token.type == TokenType.NUM_INT:
+            self.eat(TokenType.INT_LITERAL)
+            node.add(NodeType.NUM_INT,self.current_token)
+        return node
+
+    def continue_statement(self):
+        node = Ast(NodeType.CONTINUE)
+        self.eat(TokenType.ID)
+        if self.current_token.type == TokenType.NUM_INT:
+            self.eat(TokenType.INT_LITERAL)
+            node.add(NodeType.NUM_INT,self.current_token)
+        return node
+
+    def loop(self):
+        node = Ast(NodeType.INFINITE_LOOP)
+        self.eat(TokenType.ID)
+        node.add(self.statement())
+        return node
+
+    def conditionl(self):
+       self.eat(TokenType.ID) 
+       expr = self.expr()
+
     def eat_semicolon(self):
         if not self.eat(TokenType.SEMICOLON):
             self.draw_pointer(self.prev_token)
@@ -446,7 +534,11 @@ class Parse:
             if self.current_token.lexeme == "return":
                 node.add(self.return_statement())
                 self.eat_semicolon()
-                return node 
+                return node
+            elif self.current_token.lexeme == "for":
+                return self.loop()
+            elif self.current_token.lexeme == "if":
+                return self.conditionl()
             peek1, peek2 = self.peek_list(2)
             if not peek1 or not peek2:
                 print("TODO: Handle statement error")
@@ -458,6 +550,10 @@ class Parse:
                 TokenType.COLON,
             ):
                 node.add(self.var_decl())
+                self.eat_semicolon()
+                return node
+            elif peek1.lexeme in ["+=","-=","*=","/=""|=""&="]:
+                node.add(self.compund_assignment())
                 self.eat_semicolon()
                 return node
             elif peek1.type == TokenType.COLON_COLON and peek2.type == TokenType.LPARN:
@@ -492,6 +588,7 @@ class Visit:
         self.content_len = 0
         self.content = ""
         self.scopes = []
+        self.defer_stack = []
         self.scope_level = 0
         self.init()
 
@@ -509,12 +606,14 @@ class Visit:
 
         # print("enter scope",scope.kind)
         self.scopes.append(scope)
+        self.defer_stack.append([])
         return scope
 
     def exit_scope(self):
         # print("Exit scope",self.scopes[-1].kind)
         self.scope_level -= 1
         self.scopes.pop()
+        return list(reversed(self.defer_stack.pop()))
 
     def declare(self, name, value=None):
         if name in self.scopes[-1].symbols:
@@ -528,7 +627,10 @@ class Visit:
                 return True
         return False
 
-    def register_function_reference(self,node):
+    def register_function_reference(self, node):
+        symbol = Symbol(
+            dtype=None
+        )
         pass
         # print(node.type)
 
@@ -577,13 +679,15 @@ class Visit:
                 return self.infer_type(node.childrens)
             case NodeType.NUM_FLOAT:
                 return "float"
+            case NodeType.STRING:
+                return "char*"
+            case NodeType.EMPTY_EXR:
+                return "None"
             case NodeType.ID:
                 id_name = node.token.lexeme
                 if id_name in dtype_map:
                     return dtype_map[id_name]
                 return self.scopes[-1].symbols[id_name].dtype
-            case NodeType.EMPTY_EXR:
-                return "None"
 
     def init(self):
         if not os.path.isfile(self.src):
@@ -648,10 +752,12 @@ class Visit:
         pointer_level = node.childrens[1].token
         type_id = self.infer_type(node.childrens[2])
         dtype = f"{type_id}{'*'*pointer_level}"
+
         for var_name, curr_node in zip(id_list, node.childrens[0].childrens):
             symbol = Symbol(
                 dtype=dtype, kind=SymbolKind.VAR, scope_level=self.scope_level
             )
+
             if not self.declare(var_name, symbol):
                 self.draw_pointer(curr_node)
                 print(f"Variable '{var_name}' already declared.")
@@ -665,19 +771,31 @@ class Visit:
         idlist_len = len(node.childrens[0].childrens)
         exprlist_len = len(node.childrens[1].childrens)
         if exprlist_len == 1:
-            # expr_type = self.get_type(node.childrens[1].childrens[0])
-            id_list = "=".join(self.visit(node.childrens[0]))
+            id_list = self.visit(node.childrens[0])
             expr_list = "".join(self.visit(node.childrens[1]))
             expr_type = self.infer_type(node.childrens[1].childrens[0])
-            return [f"{expr_type} {id_list}={expr_list}"]
+            for var_name, curr_node in zip(id_list, node.childrens[0].childrens):
+                symbol = Symbol(
+                    dtype=expr_type, kind=SymbolKind.VAR, scope_level=self.scope_level
+                )
+                if not self.declare(var_name, symbol):
+                    self.draw_pointer(curr_node)
+                    print(f"Variable '{var_name}' already declared.")
+                    sys.exit()
+            return [
+                f"{expr_type} {','.join(id_list)}",
+                f"{'='.join(id_list)}={expr_list}",
+            ]
         if idlist_len == exprlist_len:
             x = []
-            for var_name, var_val in zip(
+            for node_var,node_expr in zip(
                 node.childrens[0].childrens, node.childrens[1].childrens
             ):
-                var_type = self.get_type(var_val)
-                x.append(f"{var_type} {self.visit(var_name)} = {self.visit(var_val)}")
+                var_type = self.infer_type(node_expr)
+                x.append(f"{var_type} {self.visit(node_var)} = {self.visit(node_expr)}")
             return x
+
+
         elif idlist_len > exprlist_len:
             self.draw_pointer(node.childrens[0].childrens[exprlist_len])
             print(
@@ -709,19 +827,20 @@ class Visit:
             case _:
                 return self.infer_type(node)
 
+
     def visit_string(self, node):
         return enclose(node.token.lexeme)
 
     def visit_expr_list(self, node):
         return [self.visit(i) for i in node.childrens]
 
-    def gen_fmt_str(self,dtype,base,function='printf'):
+    def gen_fmt_str(self, dtype, base, function="printf"):
         """
-            dtype: data type
-            base: "d" for decimal, "x" for hex
-            function: printf or scanf
+        dtype: data type
+        base: "d" for decimal, "x" for hex
+        function: printf or scanf
         """
-        return enclose("%")+fmt_map[dtype][function][base]
+        return enclose("%") + fmt_map[dtype][function][base]
 
     def translate_to_cformat(self, fmt):
         n = len(fmt)
@@ -732,7 +851,7 @@ class Visit:
             elif fmt[i] == "%":
                 pass
 
-    def build_formated_string(self,node,seperator=" "):
+    def build_formated_string(self, node, seperator=" "):
         formated_str = []
         for i in node.childrens:
             dtype = self.get_type(i)
@@ -741,11 +860,18 @@ class Visit:
                 continue
 
             if dtype in fmt_map:
-                formated_str.append(self.gen_fmt_str(dtype,'d')) 
+                formated_str.append(self.gen_fmt_str(dtype, "d"))
             else:
                 formated_str.append("Unkonwn")
 
         return enclose(seperator).join(formated_str)
+
+    def visit_compound_assign(self,node):
+        #id,expr
+        var_name = self.visit(node.childrens[0])
+        expr = self.visit(node.childrens[1])
+        # t = self.infer_type(node.childrens[1])
+        return [f"{var_name} {node.token.lexeme} {expr}"]
 
     def visit_fn_call(self, node):
         # expression_list
@@ -775,8 +901,8 @@ class Visit:
                 x += self.ident(f"{j};\n")
         return x
 
-    def visit_return_statement(self,node):
-        # exprlist 
+    def visit_return_statement(self, node):
+        # exprlist
         types = []
         # print(node.childrens[0].childrens)
         # for i in node.childrens[0].childrens:
@@ -784,6 +910,20 @@ class Visit:
         # print(types)
         # for i in node.childrens[0].childrens:
         #     print(i)
+        inside_fn_scope = False
+        for i in reversed(self.scopes):
+            if i.kind == ScopeType.STRUCT:
+                self.draw_pointer(node)
+                print('return statement found inside struct')
+                sys.exit(-1)
+            if i.kind == ScopeType.FUNC:
+                inside_fn_scope = True
+                break
+        if not inside_fn_scope:
+            self.draw_pointer(node)
+            print('return statement not found inside Function')
+            sys.exit(-1)
+
         expr_list = ",".join(self.visit(node.childrens[0]))
         return [f"return {expr_list}"]
 
@@ -796,6 +936,11 @@ class Visit:
             for i in node.childrens:
                 pass
         return "adf"
+
+    def visit_infinite_loop(self,node):
+        # block_statement
+        x = "".join(self.visit(node.childrens[0]))
+        return f"for(;;) {x}"
 
     def visit_struct(self, node):
         # statement->id,block statement
@@ -819,9 +964,12 @@ class Visit:
 
     def visit_function(self, node):
         # fn_id , return_list , block_statement
+        # self.s
+        self.enter_scope(Scope(kind=ScopeType.FUNC,parent=self.scopes[-1]))
         fn_id = self.visit(node.childrens[0])
         return_list = self.visit(node.childrens[1])
         block_statement = "".join(self.visit(node.childrens[2]))
+        self.exit_scope()
         return f"{return_list} {fn_id}() {block_statement}"
 
     def visit_program(self, node):
@@ -829,9 +977,13 @@ class Visit:
 
         for i in node.childrens:
             if i.type == NodeType.FUNCTION:
-                self.register_function_reference(i) # for forward refrence
-
-        x = []
+                self.register_function_reference(i)  # for forward refrence
+        header = """
+#include<stdio.h>
+#include<stdint.h>
+#include<inttypes.h>
+        """
+        x = [header]
         for i in node.childrens:
             x.append(self.visit(i))
         self.exit_scope()
@@ -888,20 +1040,24 @@ class Visit:
                 return self.visit_return_statement(node)
             case NodeType.EMPTY_EXR:
                 return ""
+            case NodeType.COMPUND_ASSIGN:
+                return self.visit_compound_assign(node)
+            case NodeType.INFINITE_LOOP:
+                return self.visit_infinite_loop(node)
             case _:
                 print("Unhandled", node.type)
                 return ""
 
-
-p = Parse("test.lang")
+src = sys.argv[1]
+p = Parse(src)
 ast = p.program()
-v = Visit(ast, "test.lang")
+v = Visit(ast,src)
 exp = v.visit(ast)
 print(exp)
 sys.exit()
-l = Lexer("test.lang")
-while True:
-    x = l.next_token()
-    if x.type == TokenType.EOF:
-        break
-    print(x)
+# l = Lexer("test.lang")
+# while True:
+#     x = l.next_token()
+#     if x.type == TokenType.EOF:
+#         break
+#     print(x)
