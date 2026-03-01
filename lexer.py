@@ -1,85 +1,85 @@
 import os
 import sys
-
 from enum import Enum
 
 
 class TokenType(Enum):
     # paranthesis
-    LPARN = "("
-    RPARN = ")"
+    LPARN           = "("
+    RPARN           = ")"
 
-    LSQR_BRC = "["
-    RSQR_BRC = "]"
+    LSQR_BRC        = "["
+    RSQR_BRC        = "]"
 
-    BLOCK_OPEN = "{"
-    BLOCK_CLOSE = "}"
+    BLOCK_OPEN      = "{"
+    BLOCK_CLOSE     = "}"
 
     # arithmatic
-    PLUS = "+"
-    PLUS_PLUS = "++"
-    PLUS_EQUAL = "+="
+    PLUS            = "+"
+    PLUS_PLUS       = "++"
+    PLUS_EQUAL      = "+= "
 
-    MINUS = "-"
-    MINUS_MINUS = "--"
-    MINUS_EQUAL = "-="
+    MINUS           = "-"
+    MINUS_MINUS     = "--"
+    MINUS_EQUAL     = "-= "
 
-    STAR = "*"
-    STAR_STAR = "**"
-    STAR_EQUAL = "*="
+    STAR            = "*"
+    STAR_STAR       = "**"
+    STAR_EQUAL      = "*= "
 
-    DIVIDE = "/"
-    DIVIDE_EQUAL = "/="
+    DIVIDE          = "/"
+    DIVIDE_EQUAL    = "/= "
 
-    GREATER = ">"
-    GREATER_EQUAL = ">="
+    GREATER         = ">"
+    GREATER_EQUAL   = ">= "
 
-    LESS = "<"
-    LESS_EQUAL = "<="
+    LESS            = "<"
+    LESS_EQUAL      = "<= "
 
-    LEFT_SHIFT = "<<"
-    RIGHT_SHIFT = ">>"
+    LEFT_SHIFT      = "<<"
+    RIGHT_SHIFT     = ">>"
 
-    EQUAL = "="
-    COLON_EQUAL = ":="
-    EQUAL_EQUAL = "=="
-    NOT_EQUAL = "!="
-    AND_EQUAL = "&="
-    PIPE_EQUAL = "|="
+    EQUAL           = "=  "
+    COLON_EQUAL     = ":= "
+    EQUAL_EQUAL     = "== "
+    NOT_EQUAL       = "!= "
+    AND_EQUAL       = "&= "
+    PIPE_EQUAL      = "|= "
 
-    NOT = "!"
-    POUND = "#"
-    MOD = "%"
-    CARET = "^"
-    PIPE = "|"
-    PIPE_PIPE = "||"
-    COMMA = ","
-    DOT = "."
-    DOT_DOT = ".."
-    SEMICOLON = ";"
-    COLON = ":"
-    COLON_COLON = "::"
-    AND = "&"
-    AND_AND = "&&"
+    NOT             = "!"
+    POUND           = "#"
+    MOD             = "%"
+    CARET           = "^"
+    PIPE            = "|"
+    PIPE_PIPE       = "||"
+    COMMA           = ","
+    DOT             = "."
+    DOT_DOT         = ".."
+    SEMICOLON       = ";"
+    COLON           = ":"
+    COLON_COLON     = "::"
+    AND             = "&"
+    AND_AND         = "&&"
 
-    TILDA = "~"
-    QUOTE = '"'
-    SINGLE_QUOTE = "'"
-    QUESTION = "?"
+    TILDA           = "~"
+    QUOTE           = '"'
+    SINGLE_QUOTE    = "'"
+    QUESTION        = "?"
 
     # keyword
 
-    INT_LITERAL = "integer_constant"
-    OCT_LITERAL = "oct_constant"
-    HEX_LITERAL = "hex_constant"
-    BIN_LITERAL = "bin_constant"
-    FLOAT_LITERAL = "float_constant"
-    STRING = "String"
+    INT_LITERAL     = "integer_constant"
+    OCT_LITERAL     = "oct_constant"
+    HEX_LITERAL     = "hex_constant"
+    BIN_LITERAL     = "bin_constant"
+    FLOAT_LITERAL   = "float_constant"
+    STRING          = "String"
     FORMATED_STRING = "Formated_string"
-    PREFIX = "prefix"
+    PREFIX          = "prefix"
 
-    ID = "id"
-    EOF = "EOF"
+    ID              = "id"
+    UNKNOWN         = "unknown"
+    EOF             = "EOF"
 
 
 class Token:
@@ -96,11 +96,11 @@ class Token:
 
 class Lexer:
     def __init__(self, src):
-        self.pos = 0
-        self.curr = 0
-        self.len = 0
-        self.src = src
-        self.line = 1
+        self.pos        = 0
+        self.curr       = 0
+        self.len        = 0
+        self.src        = src
+        self.line       = 1
         self.line_start = 0
         self.init_lexer()
 
@@ -164,9 +164,9 @@ class Lexer:
                     if self.peek() == "*":
                         self.advance()
                         count += 1
-                    elif self.peek() == '/':
+                    elif self.peek() == "/":
                         self.advance()
-                case '\n':
+                case "\n":
                     self.line += 1
                     self.line_start = self.pos
         # print(self.content[self.curr:self.pos])
