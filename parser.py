@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Dict, Optional 
 import lexer
 from ir import *
-from lexer import Lexer, TokenType
+from lexer import Lexer, Token, TokenType
 
 symbol_table = {}
 
@@ -329,7 +329,10 @@ class Parse:
 
     def name(self):
         node = Ast(NodeType.ID, self.current_token)
-        self.eat(TokenType.ID)
+        if not self.eat(TokenType.ID):
+            self.draw_pointer(self.prev_token)
+            print("Error: expected identifyer here.")
+            sys.exit(-1)
         return node
 
     def led(self, left):
@@ -590,11 +593,25 @@ class Parse:
 
         node = Ast(NodeType.ENUM)
         node.add(self.name())
+
         self.eat(TokenType.COLON_COLON)
         self.eat(TokenType.ID)  # keyword Enum 
-        #{
-         
-        #}
+        
+        if not self.eat(TokenType.BLOCK_OPEN):
+            self.draw_pointer(self.prev_token)
+            print("Syntax Error: Expected '{' here.")
+            sys.exit(-1)
+
+        while self.current_token.type == TokenType.ID:
+            node.add(self.name())
+            self.eat(TokenType.SEMICOLON)
+
+        if not self.eat(TokenType.BLOCK_CLOSE):
+            self.draw_pointer(self.prev_token)
+            print("Syntax Error: Expected '}' here.")
+            sys.exit(-1)
+
+        return node
     
     def struct(self):
         node = Ast(NodeType.STRUCT)
