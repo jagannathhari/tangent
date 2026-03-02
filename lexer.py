@@ -73,6 +73,7 @@ class TokenType(Enum):
     HEX_LITERAL     = "hex_constant"
     BIN_LITERAL     = "bin_constant"
     FLOAT_LITERAL   = "float_constant"
+    FLOAT64_LITERAL = "float_constant"
     STRING          = "String"
     FORMATED_STRING = "Formated_string"
     PREFIX          = "prefix"
@@ -127,11 +128,17 @@ class Lexer:
             return False
         return True
 
+    def match(self, expected):
+        if self.peek()!=expected: 
+            return False
+        return True
+
     def advance(self):
         if self.pos < self.len:
             c = self.content[self.pos]
             self.pos += 1
             return c
+        return "\0"
 
     def peek(self):
         if self.is_at_end():
